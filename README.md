@@ -124,7 +124,7 @@ await mailer.send("ann@example.org", "Hello", "text")
 
 ```sh
 python3 -m venv env
-env/bin/pip install -e '.[test]' -r requirements-dev.txt
+env/bin/pip install -e . --group dev   # pip >= 25.1
 env/bin/pytest postduif
 git config core.hooksPath .githooks   # flake8, isort, black and the tests before a push
 ```

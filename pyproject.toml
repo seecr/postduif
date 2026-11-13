@@ -33,11 +33,18 @@ dependencies = [
 ]
 dynamic = ["version"]
 
-[project.optional-dependencies]
+# for development only, not published (PEP 735): pip install -e . --group dev (pip >= 25.1)
+[dependency-groups]
 test = [
     "pytest >= 9.2.0, < 10",
     "pytest-asyncio >= 1.4.1, < 2",
 ]
+lint = [
+    "flake8 >= 7.5.0, < 8",
+    "isort >= 9.0.2, < 10",
+    "black >= 25.1, < 27",
+]
+dev = [{include-group = "test"}, {include-group = "lint"}]
 
 [project.urls]
 Source = "https://github.com/seecr/postduif"

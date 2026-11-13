@@ -8,7 +8,7 @@
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
-# flake8, isort and black come from requirements-dev.txt, in env/ or on the PATH
+# flake8, isort and black come from the dependency group lint, in env/ or on the PATH
 # the project's virtualenv if there is one, else whatever python is active
 PYTHON=python3
 [ -x env/bin/python ] && PYTHON=env/bin/python
@@ -24,7 +24,7 @@ fail() {
     exit 1
 }
 
-$FLAKE8 --version > /dev/null 2>&1 || fail "flake8 is missing: brew install flake8, or pip install -r requirements-dev.txt"
+$FLAKE8 --version > /dev/null 2>&1 || fail "flake8 is missing: brew install flake8, or pip install --group lint"
 
 echo "pre-push: flake8"
 $FLAKE8 postduif || fail "flake8 found problems"
@@ -34,7 +34,7 @@ ISORT="$PYTHON -m isort"
 if ! $ISORT --version > /dev/null 2>&1 && command -v isort > /dev/null; then
     ISORT=isort
 fi
-$ISORT --version > /dev/null 2>&1 || fail "isort is missing: brew install isort, or pip install -r requirements-dev.txt"
+$ISORT --version > /dev/null 2>&1 || fail "isort is missing: brew install isort, or pip install --group lint"
 
 echo "pre-push: isort"
 $ISORT --check-only --diff postduif || fail "imports not sorted (isort postduif)"
