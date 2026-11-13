@@ -1,0 +1,9 @@
+[flake8]
+exclude = .git,__pycache__,build,dist,env
+extend-ignore =
+    # E266 too many leading '#' for block comment
+    E266
+per-file-ignores =
+    postduif/*_test.py:F401,F811
+    postduif/__init__.py:F401
+max-line-length = 90

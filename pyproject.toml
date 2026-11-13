@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools >= 77", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "postduif"
+authors = [
+    {name = "Thijs Janssen", email = "thijs@seecr.nl"},
+    {name = "Johan Jonkers", email = "johan@seecr.nl"},
+]
+description = "Async mail for web apps: MIME with inline images, Postal transport, an outbox for development"
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["mail", "email", "postal", "asyncio", "mime", "outbox"]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Framework :: AsyncIO",
+    "Topic :: Communications :: Email",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "httpx >= 0.28.1, < 1",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+    "pytest >= 9.2.0, < 10",
+    "pytest-asyncio >= 1.4.1, < 2",
+]
+
+[project.urls]
+Source = "https://github.com/seecr/postduif"
+Issues = "https://github.com/seecr/postduif/issues"
+Changelog = "https://github.com/seecr/postduif/blob/main/CHANGELOG.md"
+
+[tool.setuptools_scm]
+version_file = "postduif/_version.py"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["postduif*"]
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
