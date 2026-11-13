@@ -78,12 +78,16 @@ give `require_base_url=True`: without a `base_url` mail is off too.
 | Key | |
 | --- | --- |
 | `sender` | The `From:` of every mail. Required. |
-| `transport` | `"postal"` (the default) or `"outbox"`: no mail is sent, each mail becomes a `.json` and an `.eml` file in `outbox_path`; then `mailer.outbox` is the `OutboxTransport` (else `None`), with `files()` and `mails()`. |
+| `transport` | `"postal"` (the default) or `"outbox"`: no mail is sent, each mail becomes a `.json` and an `.eml` file in `outbox_path`. |
 | `postal_url`, `api_key` | The Postal server and an API key of its mail server. Required for `"postal"`. |
 | `base_url` | Where your site is, for `link()`. Optional, unless `require_base_url=True`. |
 | `timeout` | Seconds per request to Postal; default 10. |
 | `redirect_to` | Send every mail to this address instead, with the real addressee in the subject. |
 | `outbox_keep`, `outbox_days` | The outbox keeps the newest 50 mails, for at most 7 days. |
+
+With `"transport": "outbox"`, `mailer.outbox` is the `OutboxTransport` (else it is `None`), to
+show the mails in your app: `files()` are their `.json` files, `mails()` their contents as dicts,
+newest first, and `Mail.from_dict(values)` makes a `Mail` of one again, images included.
 
 To build the configuration in code: `MailConfig.from_dict(values)` or `MailConfig(...)`, then
 `make_mailer(config, outbox_path)`. `Mailer.off()` is a Mailer that sends nothing.

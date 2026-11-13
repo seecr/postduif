@@ -172,7 +172,7 @@ class OutboxTransport(Transport):
 
     def mails(self):
         """The mails in the outbox as dicts (Mail.as_dict() plus from, message_id and
-        sent_at), newest first."""
+        sent_at), newest first. Mail.from_dict(values) makes a Mail of one again."""
         mails = []
         for path in self.files():
             try:
