@@ -68,6 +68,18 @@ def test_base_url_is_optional():
     assert config.describe().endswith(", no links (no base_url)")
 
 
+def test_require_base_url(tmp_path):
+    values = {key: value for key, value in POSTAL.items() if key != "base_url"}
+    with pytest.raises(MailConfigError, match="'base_url' is required"):
+        MailConfig.from_dict(values, require_base_url=True)
+    with pytest.raises(MailConfigError, match="mail.json: 'base_url' is required"):
+        MailConfig.read(write(tmp_path, values), require_base_url=True)
+    with pytest.raises(MailConfigError, match='example.org"$'):
+        MailConfig.from_dict(POSTAL | {"base_url": "x"}, require_base_url=True)
+    config = MailConfig.read(write(tmp_path, POSTAL), require_base_url=True)
+    assert config.base_url == "https://example.org"
+
+
 def test_outbox_and_redirect():
     config = MailConfig.from_dict(
         {

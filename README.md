@@ -62,7 +62,8 @@ mailer.link("/password-reset", token="a1b2")   # https://example.org/password-re
 ## Configuration
 
 `Mailer.from_file(path)` reads a JSON file. Without the file, or with a file that is not
-valid, mail is off and your app starts anyway; the log says why.
+valid, mail is off and your app starts anyway; the log says why. If all your mails have links,
+give `require_base_url=True`: without a `base_url` mail is off too.
 
 ```json
 {
@@ -77,9 +78,9 @@ valid, mail is off and your app starts anyway; the log says why.
 | Key | |
 | --- | --- |
 | `sender` | The `From:` of every mail. Required. |
-| `transport` | `"postal"` (the default) or `"outbox"`: no mail is sent, each mail becomes a `.json` and an `.eml` file in `outbox_path`. |
+| `transport` | `"postal"` (the default) or `"outbox"`: no mail is sent, each mail becomes a `.json` and an `.eml` file in `outbox_path`; then `mailer.outbox` is the `OutboxTransport` (else `None`), with `files()` and `mails()`. |
 | `postal_url`, `api_key` | The Postal server and an API key of its mail server. Required for `"postal"`. |
-| `base_url` | Where your site is, for `link()`. Optional. |
+| `base_url` | Where your site is, for `link()`. Optional, unless `require_base_url=True`. |
 | `timeout` | Seconds per request to Postal; default 10. |
 | `redirect_to` | Send every mail to this address instead, with the real addressee in the subject. |
 | `outbox_keep`, `outbox_days` | The outbox keeps the newest 50 mails, for at most 7 days. |
@@ -103,6 +104,8 @@ async def test_order_confirmation():
     assert mail.to == "ann@example.org"
     mailer.clear()                         # forgets the mails sent so far
     mailer.transport.fail_with(MailError("refused"))   # the next mail fails
+    mailer.transport.fail_when(True)       # every mail fails, until fail_when(None)
+    mailer.transport.fail_when(lambda mail: mail.to == "bob@example.org")
 ```
 
 `PostalMock` plays Postal's API for a `PostalTransport`, with its answers and failures:

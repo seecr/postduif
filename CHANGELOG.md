@@ -13,6 +13,11 @@
 - `Mail.from_dict`, the inverse of `as_dict`: reads a mail of `OutboxTransport.mails()` back,
   images included.
 - `FakeMailer.clear()` and `RecordingTransport.clear()` forget the mails sent so far.
+- `RecordingTransport.fail_when(when, error=None)`: every delivery fails (`True`), or those of
+  the mails `when(mail)` is true for, until `fail_when(None)`.
+- `Mailer.outbox`: the `OutboxTransport` when mail goes to the outbox, else `None`.
+- `require_base_url=True` for `MailConfig.read`, `MailConfig.from_dict` and `Mailer.from_file`:
+  without a `base_url` the config is not valid (`from_file`: mail is off, with a warning).
 
 ## 0.1.0 (2026-11-13)
 

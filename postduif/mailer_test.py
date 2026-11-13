@@ -346,3 +346,62 @@ def test_from_file_with_a_bad_file_is_mail_off_and_a_warning(tmp_path, caplog):
         f"Mail: off, {path}: 'postal_url' must be the URL"
     )
     assert "secret" not in caplog.text
+
+
+def test_from_file_requiring_a_base_url(tmp_path, caplog):
+    path = tmp_path / "mail.json"
+    path.write_text(json.dumps({"transport": "outbox", "sender": "noreply@example.org"}))
+    mailer = Mailer.from_file(path, tmp_path / "outbox", require_base_url=True)
+    assert not mailer.enabled
+    [record] = caplog.records
+    assert record.levelname == "WARNING"
+    assert record.getMessage() == (
+        f"Mail: off, {path}: 'base_url' is required: where the site is,"
+        ' e.g. "https://example.org"'
+    )
+
+
+def test_outbox(tmp_path):
+    config = MailConfig(transport="outbox", sender="noreply@example.org")
+    mailer = make_mailer(config, tmp_path / "outbox")
+    assert mailer.outbox is mailer.transport
+    assert mailer.outbox.path == tmp_path / "outbox"
+    assert make_mailer(POSTAL).outbox is None
+    assert Mailer.off().outbox is None
+    assert FakeMailer().outbox is None
+
+
+async def test_fail_when_always():
+    mailer = FakeMailer()
+    mailer.transport.fail_when(True)
+    for _ in range(2):
+        result = await mailer.send(to="ann@example.org", subject="Hello", text="text")
+        assert (result.sent, result.attempts) == (False, 1)
+        assert result.error == "refused by the RecordingTransport"
+    mailer.transport.fail_when(None)
+    assert await mailer.send(to="ann@example.org", subject="Hello", text="text")
+    assert len(mailer.mails) == 1
+
+
+async def test_fail_when_for_some_mails():
+    mailer = FakeMailer()
+    mailer.transport.fail_when(
+        lambda mail: mail.to == "bob@example.org",
+        MailError("HTTP 500 from Postal", temporary=True),
+    )
+    assert await mailer.send(to="ann@example.org", subject="Hello", text="text")
+    result = await mailer.send(to="bob@example.org", subject="Hello", text="text")
+    assert (result.sent, result.attempts) == (False, 3)
+    assert [mail.to for mail in mailer.mails] == ["ann@example.org"]
+
+
+async def test_fail_with_goes_before_fail_when():
+    mailer = FakeMailer()
+    mailer.transport.fail_when(True)
+    mailer.transport.fail_with(RuntimeError("a bug"))
+    first = await mailer.send(to="ann@example.org", subject="Hello", text="text")
+    second = await mailer.send(to="ann@example.org", subject="Hello", text="text")
+    assert (first.error, second.error) == (
+        "RuntimeError: a bug",
+        "refused by the RecordingTransport",
+    )

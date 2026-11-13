@@ -122,13 +122,14 @@ class Mailer:
         )
 
     @classmethod
-    def from_file(cls, path, outbox_path=None, **kwargs):
+    def from_file(cls, path, outbox_path=None, *, require_base_url=False, **kwargs):
         """The Mailer for a JSON file with a MailConfig (postduif.config).
 
-        No file, or a file that is not valid: mail is off, and the app starts anyway. It
-        logs how mail is sent (never the api key); call it once, at startup."""
+        No file, or a file that is not valid (or without a base_url, while
+        require_base_url): mail is off, and the app starts anyway. It logs how mail is
+        sent (never the api key); call it once, at startup."""
         try:
-            config = MailConfig.read(path)
+            config = MailConfig.read(path, require_base_url=require_base_url)
         except MailConfigError as e:
             logger.warning(f"Mail: off, {e}")
             return cls.off()
@@ -142,6 +143,12 @@ class Mailer:
     def enabled(self):
         """Whether mail is sent (to a mail server or an outbox) at all."""
         return not isinstance(self.transport, NullTransport)
+
+    @property
+    def outbox(self):
+        """The OutboxTransport when mail goes to the outbox (nothing is sent), else None:
+        `if mailer.outbox:`, `mailer.outbox.files()`, `mailer.outbox.path`."""
+        return self.transport if isinstance(self.transport, OutboxTransport) else None
 
     @property
     def can_link(self):

@@ -18,6 +18,8 @@ await mailer.send(to="ann@example.org", subject="Hello", text="text")
 [mail] = mailer.mails                     # postduif Mail objects
 mailer.clear()                            # forgets them
 mailer.transport.fail_with(MailError("refused"))   # the next mail fails
+mailer.transport.fail_when(True)          # every mail fails, until fail_when(None)
+mailer.transport.fail_when(lambda mail: mail.to == "bob@example.org")
 
 postal = PostalMock()                     # Postal's API, without a network
 transport = PostalTransport("https://postal.example.org", "key", httpx_transport=postal)
@@ -41,11 +43,14 @@ TEST_BASE_URL = "https://example.org"
 
 class RecordingTransport(Transport):
     """Sends nothing; keeps every mail it gets. `fail_with(error)` makes the next delivery
-    raise that error (a MailError, or anything else to play a bug)."""
+    raise that error (a MailError, or anything else to play a bug); `fail_when(...)` makes
+    every delivery fail, or those of the mails a function is true for."""
 
     def __init__(self):
         self.delivered = []  # (sender, mail, message)
         self._failures = []
+        self._fail_when = None
+        self._fail_error = None
 
     @property
     def mails(self):
@@ -59,9 +64,20 @@ class RecordingTransport(Transport):
         """The next deliveries raise these errors, one each, in this order."""
         self._failures.extend(errors)
 
+    def fail_when(self, when, error=None):
+        """From now on deliveries fail: all of them (when is True), or those of the mails
+        when(mail) is true for; None stops it. They raise error, by default a MailError
+        (a refusal, so it is not tried again). fail_with goes first."""
+        self._fail_when = when
+        self._fail_error = error or MailError("refused by the RecordingTransport")
+
     async def deliver(self, sender, mail, message):
         if self._failures:
             raise self._failures.pop(0)
+        if self._fail_when is True or (
+            callable(self._fail_when) and self._fail_when(mail)
+        ):
+            raise self._fail_error
         self.delivered.append((sender, mail, message))
         return f"recorded-{len(self.delivered)}"
 

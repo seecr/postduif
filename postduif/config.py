@@ -81,11 +81,12 @@ class MailConfig:
         return bool(self.base_url)
 
     @classmethod
-    def read(cls, path):
+    def read(cls, path, *, require_base_url=False):
         """The MailConfig in a JSON file; None when there is no such file (mail is off).
 
-        Raises MailConfigError when the file is not valid. Whether the app then stops or
-        starts without mail is the app's to decide."""
+        Raises MailConfigError when the file is not valid, or has no base_url while
+        require_base_url (for an app whose mails all have links). Whether the app then
+        stops or starts without mail is the app's to decide."""
         path = pathlib.Path(path)
         try:
             text = path.read_text()
@@ -95,10 +96,10 @@ class MailConfig:
             values = json.loads(text)
         except json.JSONDecodeError as e:
             raise MailConfigError(f"{path}: not valid JSON ({e})") from None
-        return cls.from_dict(values, source=path)
+        return cls.from_dict(values, source=path, require_base_url=require_base_url)
 
     @classmethod
-    def from_dict(cls, values, source="mail config"):
+    def from_dict(cls, values, source="mail config", *, require_base_url=False):
         def fail(message):
             raise MailConfigError(f"{source}: {message}")
 
@@ -127,10 +128,16 @@ class MailConfig:
                 "'sender' must be an e-mail address,"
                 ' e.g. "Example <noreply@example.org>"'
             )
-        if (base_url := text("base_url")) and not _is_url(base_url):
+        base_url = text("base_url")
+        if require_base_url and not base_url:
+            fail(
+                "'base_url' is required: where the site is," ' e.g. "https://example.org"'
+            )
+        if base_url and not _is_url(base_url):
             fail(
                 "'base_url' must be where the site is,"
-                ' e.g. "https://example.org", or left out'
+                ' e.g. "https://example.org"'
+                + ("" if require_base_url else ", or left out")
             )
         postal_url, api_key = text("postal_url"), text("api_key")
         if transport == "postal":
