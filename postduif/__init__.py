@@ -14,15 +14,31 @@
 """postduif (Dutch for carrier pigeon) delivers your app's mail."""
 
 from .config import MailConfig, MailConfigError
+from .mailer import Mailer, SendResult, make_mailer
 from .message import InlineImage, Mail, build_message, html_with_images
+from .transports import (
+    MailError,
+    NullTransport,
+    OutboxTransport,
+    PostalTransport,
+    Transport,
+)
 
 __all__ = [
     "InlineImage",
     "Mail",
     "MailConfig",
     "MailConfigError",
+    "MailError",
+    "Mailer",
+    "NullTransport",
+    "OutboxTransport",
+    "PostalTransport",
+    "SendResult",
+    "Transport",
     "build_message",
     "html_with_images",
+    "make_mailer",
 ]
 
 try:
