@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-13)
+
+> What moving Sponsor Mee over asked for: `send` with keywords only, and fewer workarounds in an
+> app and its tests (`fail_when`, `clear`, `Mailer.outbox`, `Mail.from_dict`,
+> `require_base_url`). Calls of `send` with a `Mail` or positional arguments must change.
 
 ### Changed
 
