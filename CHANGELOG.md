@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (not released yet)
+## 0.1.0 (2026-11-13)
 
 > The first version: sending mail. A `Mailer` sends a `Mail` through Postal's HTTP API or to an
 > outbox, never raises, and tells what became of it in a `SendResult`.

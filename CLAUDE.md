@@ -14,7 +14,7 @@ messages, log lines, README. Nothing Seecr-specific in code, examples or tests (
 
 ## State of the project
 
-- Ready for 0.1.0, not tagged yet: `message`, `config`, `mailer`, `transports` and `testing`.
+- 0.1.0 is released (PyPI): `message`, `config`, `mailer`, `transports` and `testing`.
   The code comes from Sponsor Mee's `sponsormee/mail.py`; Sponsor Mee, Spring Leden, Vault and
   Guard App move over after 0.1.0, each in its own time.
 - Decided: httpx (`AsyncClient`, inside `PostalTransport`, not in the API); `send` returns a
