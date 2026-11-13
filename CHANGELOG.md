@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- `Mailer.send` and `send_in_background` take keywords only: `send(to=..., subject=...,
+  text=..., ...)`, so `send(**fields)` works. They no longer take a `Mail`, nor the fields as
+  positional arguments. `send_in_background` raises at once for fields that make no `Mail`.
+
+### Added
+
+- `Mail.from_dict`, the inverse of `as_dict`: reads a mail of `OutboxTransport.mails()` back,
+  images included.
+- `FakeMailer.clear()` and `RecordingTransport.clear()` forget the mails sent so far.
+
 ## 0.1.0 (2026-11-13)
 
 > The first version: sending mail. A `Mailer` sends a `Mail` through Postal's HTTP API or to an

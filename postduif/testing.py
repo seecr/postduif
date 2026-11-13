@@ -14,8 +14,9 @@
 """Helpers for the tests of an app that sends mail with postduif. No pytest needed.
 
 mailer = FakeMailer()                     # keeps what it sends in a list
-await mailer.send("ann@example.org", "Hello", "text")
+await mailer.send(to="ann@example.org", subject="Hello", text="text")
 [mail] = mailer.mails                     # postduif Mail objects
+mailer.clear()                            # forgets them
 mailer.transport.fail_with(MailError("refused"))   # the next mail fails
 
 postal = PostalMock()                     # Postal's API, without a network
@@ -50,6 +51,10 @@ class RecordingTransport(Transport):
     def mails(self):
         return [mail for _, mail, _ in self.delivered]
 
+    def clear(self):
+        """Forgets the mails delivered so far."""
+        self.delivered.clear()
+
     def fail_with(self, *errors):
         """The next deliveries raise these errors, one each, in this order."""
         self._failures.extend(errors)
@@ -76,6 +81,10 @@ class FakeMailer(Mailer):
     @property
     def messages(self):
         return [message for _, _, message in self.transport.delivered]
+
+    def clear(self):
+        """Forgets the mails sent so far."""
+        self.transport.clear()
 
 
 class PostalMock(httpx.MockTransport):

@@ -31,28 +31,26 @@ pip install postduif
 ## Sending a mail
 
 ```python
-from postduif import InlineImage, Mail, Mailer
+from postduif import InlineImage, Mailer
 
 mailer = Mailer.from_file("config.d/mail.json", outbox_path="data/outbox")
 
 logo = InlineImage.from_file("static/logo.png", cid="logo@example.org")
 result = await mailer.send(
-    Mail(
-        to="ann@example.org",
-        subject="Your order",
-        text="Thank you for your order.",
-        html='<img src="cid:logo@example.org" alt=""><p>Thank you for your order.</p>',
-        reply_to="shop@example.org",
-        tag="order",          # Postal's tag, to find mails of one kind
-        images=[logo],
-    )
+    to="ann@example.org",
+    subject="Your order",
+    text="Thank you for your order.",
+    html='<img src="cid:logo@example.org" alt=""><p>Thank you for your order.</p>',
+    reply_to="shop@example.org",
+    tag="order",              # Postal's tag, to find mails of one kind
+    images=[logo],
 )
 if not result:
     print(result.error)       # also in the log; result.attempts says how often it was tried
 ```
 
-The short form does the same: `await mailer.send(to, subject, text, html, tag="order")`.
-`mailer.send_in_background(...)` sends without making the caller wait and returns the asyncio
+`send` takes keywords only, so the fields can come from a dict: `send(**fields)`.
+`mailer.send_in_background(...)` takes the same and sends without making the caller wait and returns the asyncio
 task. At shutdown, `await mailer.aclose()` waits for mails that are still going.
 
 Links in a mail come from the configured `base_url`, never from a request:
@@ -103,6 +101,7 @@ async def test_order_confirmation():
     await place_order(mailer, ...)
     [mail] = mailer.mails                  # postduif Mail objects
     assert mail.to == "ann@example.org"
+    mailer.clear()                         # forgets the mails sent so far
     mailer.transport.fail_with(MailError("refused"))   # the next mail fails
 ```
 
@@ -116,7 +115,7 @@ postal = PostalMock()
 postal.answer(PostalMock.http_error(500))              # first a temporary failure
 transport = PostalTransport("https://postal.example.org", "key", httpx_transport=postal)
 mailer = Mailer(transport, "noreply@example.org", retry_delays=(0, 0))
-await mailer.send("ann@example.org", "Hello", "text")
+await mailer.send(to="ann@example.org", subject="Hello", text="text")
 [_, sent] = postal.sent                                # rcpt_to, message, ...
 ```
 

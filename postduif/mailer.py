@@ -14,11 +14,10 @@
 """The Mailer: sends a Mail through its transport, and never raises doing so.
 
     mailer = Mailer.from_file("config.d/mail.json", outbox_path="data/outbox")
-    result = await mailer.send(Mail(to=..., subject=..., text=..., html=...))
-    result = await mailer.send(to, subject, text, html, tag="order")      # the same
+    result = await mailer.send(to=..., subject=..., text=..., html=..., tag="order")
     if not result:
         ...                                   # result.error says why, for the log
-    mailer.send_in_background(mail)           # without waiting; returns the task
+    mailer.send_in_background(to=..., ...)    # without waiting; returns the task
     mailer.link("/orders/12", token="abc")    # https://example.org/orders/12?token=abc
     await mailer.aclose()                     # at shutdown: waits for mails still going
 
@@ -158,13 +157,25 @@ class Mailer:
             url += "?" + urllib.parse.urlencode(params)
         return url
 
-    async def send(self, mail, subject=None, text=None, html="", **fields):
-        """Sends one mail: a Mail, or its fields (to, subject, text, html, reply_to, tag,
-        images, headers). Never raises; returns a SendResult."""
-        if not isinstance(mail, Mail):
-            mail = Mail(to=mail, subject=subject, text=text, html=html, **fields)
-        elif subject is not None or text is not None or html or fields:
-            raise TypeError("send(mail) takes a Mail, or the fields of one; not both")
+    async def send(
+        self, *, to, subject, text, html="", reply_to="", tag="", images=(), headers=()
+    ):
+        """Sends one mail; the fields are those of a Mail (postduif.message). Never raises
+        for what goes wrong in sending; returns a SendResult. Fields that cannot make a
+        Mail (images without html) are a mistake in the app: ValueError."""
+        mail = Mail(
+            to=to,
+            subject=subject,
+            text=text,
+            html=html,
+            reply_to=reply_to,
+            tag=tag,
+            images=images,
+            headers=headers,
+        )
+        return await self._send(mail)
+
+    async def _send(self, mail):
         if self.redirect_to:
             mail = dataclasses.replace(
                 mail,
@@ -204,11 +215,13 @@ class Mailer:
         logger.info(f"{what} sent, message_id {message_id}")
         return SendResult(True, to=mail.to, message_id=message_id, attempts=attempt)
 
-    def send_in_background(self, mail, subject=None, text=None, html="", **fields):
-        """Sends it without making the caller wait (or fail); returns the asyncio task,
-        whose result is the SendResult."""
+    def send_in_background(self, **fields):
+        """Sends it (the fields of send) without making the caller wait (or fail);
+        returns the asyncio task, whose result is the SendResult. Fields that cannot
+        make a Mail raise here, not in the task."""
+        mail = Mail(**fields)
         task = asyncio.get_running_loop().create_task(
-            self.send(mail, subject, text, html, **fields), name="postduif send"
+            self._send(mail), name="postduif send"
         )
         self._pending.add(task)
         task.add_done_callback(self._pending.discard)

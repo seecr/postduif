@@ -188,6 +188,7 @@ async def test_outbox(tmp_path):
         "message_id": second,
         "sent_at": None,
     }
+    assert Mail.from_dict(newest).images == (LOGO,)
 
 
 async def test_outbox_tag_in_a_file_name(tmp_path):

@@ -18,7 +18,7 @@ import pytest
 
 from .config import MailConfig
 from .mailer import Mailer, SendResult, make_mailer
-from .message import Mail
+from .message import InlineImage, Mail
 from .testing import FakeMailer, PostalMock
 from .transports import MailError, NullTransport, OutboxTransport, PostalTransport
 
@@ -30,6 +30,7 @@ POSTAL = MailConfig(
     api_key="secret",
     timeout=3,
 )
+LOGO = InlineImage("logo@example.org", "logo.png", "image/png", b"\x89PNG-logo")
 
 
 @pytest.fixture
@@ -40,13 +41,30 @@ def caplog(caplog):
 
 async def test_send_a_mail(caplog):
     mailer = FakeMailer()
-    mail = Mail("ann@example.org", "Your order", "text", "<p>html</p>", tag="order")
-    result = await mailer.send(mail)
+    result = await mailer.send(
+        to="ann@example.org",
+        subject="Your order",
+        text="text",
+        html="<p>html</p>",
+        reply_to="shop@example.org",
+        tag="order",
+        headers={"Auto-Submitted": "auto-generated"},
+    )
     assert result == SendResult(
         True, to="ann@example.org", message_id="recorded-1", attempts=1
     )
     assert result
-    assert mailer.mails == [mail]
+    assert mailer.mails == [
+        Mail(
+            "ann@example.org",
+            "Your order",
+            "text",
+            "<p>html</p>",
+            reply_to="shop@example.org",
+            tag="order",
+            headers={"Auto-Submitted": "auto-generated"},
+        )
+    ]
     assert mailer.messages[0]["From"] == "Test <noreply@example.org>"
     assert (
         "Mail 'Your order' (order) to ann@example.org sent, message_id recorded-1"
@@ -54,29 +72,31 @@ async def test_send_a_mail(caplog):
     )
 
 
-async def test_send_the_fields_of_a_mail():
+async def test_send_the_fields_of_a_dict():
     mailer = FakeMailer()
-    await mailer.send(
-        "ann@example.org", "Hello", "text", "<p>html</p>", reply_to="shop@example.org"
-    )
-    assert mailer.mails == [
-        Mail(
-            "ann@example.org", "Hello", "text", "<p>html</p>", reply_to="shop@example.org"
-        )
-    ]
-    await mailer.send("bob@example.org", "Hello", "text only")
-    assert mailer.mails[1] == Mail("bob@example.org", "Hello", "text only")
+    fields = {"to": "ann@example.org", "subject": "Hello", "text": "text only"}
+    await mailer.send(**fields)
+    assert mailer.mails == [Mail("ann@example.org", "Hello", "text only")]
 
 
-async def test_send_a_mail_and_fields_is_an_error():
+async def test_send_takes_only_keywords():
     with pytest.raises(TypeError):
-        await FakeMailer().send(Mail("ann@example.org", "Hello", "text"), "Subject")
+        await FakeMailer().send("ann@example.org", "Hello", "text")
+
+
+async def test_fields_that_make_no_mail_are_an_error():
+    with pytest.raises(ValueError, match="images need html"):
+        await FakeMailer().send(
+            to="ann@example.org", subject="Hello", text="text", images=[LOGO]
+        )
 
 
 async def test_a_refusal_is_logged_and_not_tried_again(caplog):
     mailer = FakeMailer()
     mailer.transport.fail_with(MailError("refused by Postal: NoRecipients"))
-    result = await mailer.send("ann@example.org", "Your order", "text", tag="order")
+    result = await mailer.send(
+        to="ann@example.org", subject="Your order", text="text", tag="order"
+    )
     assert result == SendResult(
         False, to="ann@example.org", error="refused by Postal: NoRecipients", attempts=1
     )
@@ -94,7 +114,9 @@ async def test_a_refusal_is_logged_and_not_tried_again(caplog):
 async def test_a_temporary_failure_is_tried_three_times(caplog):
     mailer = FakeMailer()
     mailer.transport.fail_with(*[MailError("HTTP 500 from Postal", temporary=True)] * 3)
-    result = await mailer.send("ann@example.org", "Your order", "text", tag="order")
+    result = await mailer.send(
+        to="ann@example.org", subject="Your order", text="text", tag="order"
+    )
     assert (result.sent, result.attempts, result.error) == (
         False,
         3,
@@ -113,7 +135,7 @@ async def test_after_a_temporary_failure_it_is_sent():
     mailer.transport.fail_with(
         MailError("HTTP 500", temporary=True), MailError("ConnectError", temporary=True)
     )
-    result = await mailer.send("ann@example.org", "Hello", "text")
+    result = await mailer.send(to="ann@example.org", subject="Hello", text="text")
     assert (result.sent, result.message_id, result.attempts) == (True, "recorded-1", 3)
 
 
@@ -124,7 +146,7 @@ async def test_with_postal_it_tries_again():
         "https://postal.example.org", "secret", httpx_transport=mock
     )
     mailer = Mailer(transport, "noreply@example.org", retry_delays=(0, 0))
-    result = await mailer.send("ann@example.org", "Hello", "text")
+    result = await mailer.send(to="ann@example.org", subject="Hello", text="text")
     assert (result.sent, result.message_id, result.attempts) == (True, "message-3", 3)
     assert len(mock.requests) == 3
 
@@ -136,7 +158,7 @@ async def test_it_waits_2_then_10_seconds():
 async def test_an_unexpected_error_is_logged_with_its_traceback(caplog):
     mailer = FakeMailer()
     mailer.transport.fail_with(RuntimeError("a bug"))
-    result = await mailer.send("ann@example.org", "Hello", "text")
+    result = await mailer.send(to="ann@example.org", subject="Hello", text="text")
     assert (result.sent, result.error, result.attempts) == (
         False,
         "RuntimeError: a bug",
@@ -152,7 +174,9 @@ async def test_an_unexpected_error_is_logged_with_its_traceback(caplog):
 
 async def test_a_header_that_cannot_be_one_is_not_sent(caplog):
     mailer = FakeMailer()
-    result = await mailer.send("ann@example.org", "Hello\nBcc: eve@example.org", "text")
+    result = await mailer.send(
+        to="ann@example.org", subject="Hello\nBcc: eve@example.org", text="text"
+    )
     assert (result.sent, result.attempts) == (False, 0)
     assert mailer.mails == []
     [record] = caplog.records
@@ -162,7 +186,7 @@ async def test_a_header_that_cannot_be_one_is_not_sent(caplog):
 
 async def test_redirect_to():
     mailer = FakeMailer(redirect_to="test@example.org")
-    result = await mailer.send("ann@example.org", "Your order", "text")
+    result = await mailer.send(to="ann@example.org", subject="Your order", text="text")
     [mail] = mailer.mails
     assert (mail.to, mail.subject) == (
         "test@example.org",
@@ -175,14 +199,16 @@ async def test_redirect_subject():
     mailer = FakeMailer(
         redirect_to="test@example.org", redirect_subject="[test, voor {to}] {subject}"
     )
-    await mailer.send("ann@example.org", "Je bestelling", "text")
+    await mailer.send(to="ann@example.org", subject="Je bestelling", text="text")
     assert mailer.mails[0].subject == "[test, voor ann@example.org] Je bestelling"
 
 
 async def test_mail_off(caplog):
     mailer = Mailer.off()
     assert not mailer.enabled
-    result = await mailer.send("ann@example.org", "Hello", "text", tag="order")
+    result = await mailer.send(
+        to="ann@example.org", subject="Hello", text="text", tag="order"
+    )
     assert result == SendResult(False, to="ann@example.org", error="mail is off")
     [record] = caplog.records
     assert (record.levelname, record.getMessage()) == (
@@ -199,17 +225,33 @@ def test_a_mailer_that_sends_needs_a_sender(tmp_path):
 
 async def test_send_in_background():
     mailer = FakeMailer()
-    task = mailer.send_in_background("ann@example.org", "Hello", "text", tag="order")
+    task = mailer.send_in_background(
+        to="ann@example.org", subject="Hello", text="text", tag="order"
+    )
     result = await asyncio.wait_for(task, 1)
     assert result.message_id == "recorded-1"
     assert mailer.mails == [Mail("ann@example.org", "Hello", "text", tag="order")]
     assert not mailer._pending
 
 
+def test_send_in_background_with_a_wrong_field_raises_at_once():
+    with pytest.raises(TypeError):
+        FakeMailer().send_in_background(to="ann@example.org", subject="Hello", txt="x")
+
+
+async def test_clear():
+    mailer = FakeMailer()
+    await mailer.send(to="ann@example.org", subject="Hello", text="text")
+    mailer.clear()
+    assert (mailer.mails, mailer.messages) == ([], [])
+    await mailer.send(to="bob@example.org", subject="Hello", text="text")
+    assert [mail.to for mail in mailer.mails] == ["bob@example.org"]
+
+
 async def test_aclose_waits_for_mails_in_the_background():
     mailer = FakeMailer(retry_delays=(0.05,))
     mailer.transport.fail_with(MailError("busy", temporary=True))
-    task = mailer.send_in_background("ann@example.org", "Hello", "text")
+    task = mailer.send_in_background(to="ann@example.org", subject="Hello", text="text")
     await mailer.aclose()
     assert task.done() and task.result().sent
 
@@ -217,7 +259,7 @@ async def test_aclose_waits_for_mails_in_the_background():
 async def test_aclose_with_a_timeout_cancels(caplog):
     mailer = FakeMailer(retry_delays=(10,))
     mailer.transport.fail_with(MailError("busy", temporary=True))
-    task = mailer.send_in_background("ann@example.org", "Hello", "text")
+    task = mailer.send_in_background(to="ann@example.org", subject="Hello", text="text")
     await mailer.aclose(timeout=0.05)
     await asyncio.sleep(0)
     assert task.cancelled()

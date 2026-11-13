@@ -216,3 +216,24 @@ def test_as_dict():
         ],
         "headers": {"Auto-Submitted": "auto-generated"},
     }
+
+
+def test_from_dict_is_the_inverse_of_as_dict():
+    mail = Mail(
+        "ann@example.org",
+        "Hello",
+        "text",
+        "<p>html</p>",
+        reply_to="shop@example.org",
+        tag="order",
+        images=[LOGO],
+        headers={"Auto-Submitted": "auto-generated"},
+    )
+    assert Mail.from_dict(mail.as_dict()) == mail
+    assert Mail.from_dict(Mail("ann@example.org", "Hi", "text").as_dict()).images == ()
+
+
+def test_from_dict_leaves_out_other_keys():
+    values = Mail("ann@example.org", "Hello", "text").as_dict()
+    extra = {"from": "noreply@example.org", "message_id": "outbox-1", "sent_at": "now"}
+    assert Mail.from_dict(values | extra) == Mail("ann@example.org", "Hello", "text")

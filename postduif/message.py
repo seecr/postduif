@@ -143,6 +143,18 @@ class Mail:
         values["headers"] = dict(self.headers)
         return values
 
+    @classmethod
+    def from_dict(cls, values):
+        """The Mail of as_dict(); other keys are left out, so a mail from the outbox (with
+        from, message_id and sent_at) can be given as it is."""
+        fields = {f.name for f in dataclasses.fields(cls)}
+        values = {key: value for key, value in values.items() if key in fields}
+        values["images"] = [
+            InlineImage(**image | {"data": base64.b64decode(image["data"])})
+            for image in values.get("images", ())
+        ]
+        return cls(**values)
+
 
 def build_message(sender, mail):
     """The MIME message of a mail.
