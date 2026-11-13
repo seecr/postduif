@@ -1,5 +1,5 @@
 #!/bin/sh
-# Before `git push`: the checks CI runs that are quick (flake8, isort and the Python tests),
+# Before `git push`: the checks CI runs that are quick (flake8, isort, black and the tests),
 # so a push does not turn CI red. Turn it on once per clone:
 #
 #     git config core.hooksPath .githooks
@@ -8,7 +8,7 @@
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
-# flake8 and isort come from requirements-dev.txt, in env/ or on the PATH
+# flake8, isort and black come from requirements-dev.txt, in env/ or on the PATH
 # the project's virtualenv if there is one, else whatever python is active
 PYTHON=python3
 [ -x env/bin/python ] && PYTHON=env/bin/python
@@ -38,6 +38,9 @@ $ISORT --version > /dev/null 2>&1 || fail "isort is missing: brew install isort,
 
 echo "pre-push: isort"
 $ISORT --check-only --diff postduif || fail "imports not sorted (isort postduif)"
+
+echo "pre-push: black"
+"$PYTHON" -m black --check -q postduif || fail "not formatted (black postduif)"
 
 echo "pre-push: tests"
 "$PYTHON" -m pytest -q postduif || fail "tests failed"

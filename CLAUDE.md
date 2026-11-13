@@ -14,17 +14,29 @@ messages, log lines, README. Nothing Seecr-specific in code, examples or tests (
 
 ## State of the project
 
-- Empty package (step 2 of the plan). The code comes from Sponsor Mee's `sponsormee/mail.py`;
-  Spring Leden, Vault and Guard App move over later, each in its own time.
-- Decided: httpx (`AsyncClient`, kept inside `PostalTransport`, not in the API); `send` returns a
+- Ready for 0.1.0, not tagged yet: `message`, `config`, `mailer`, `transports` and `testing`.
+  The code comes from Sponsor Mee's `sponsormee/mail.py`; Sponsor Mee, Spring Leden, Vault and
+  Guard App move over after 0.1.0, each in its own time.
+- Decided: httpx (`AsyncClient`, inside `PostalTransport`, not in the API); `send` returns a
   `SendResult` and never raises; mail off is a `NullTransport`, never `None`. The first version
-  is small: only sending (`message`, `config`, `mailer`, `testing`). `compose` and `cli` come when
-  two apps run on the package.
+  is small: only sending. `compose` (templates, `subject_moment`, `duration`, macros) and `cli`
+  (a test-mail command) come when two apps run on the package. Later still: SMTP, a queue on
+  disk.
+
+## Where things are
+
+- `postduif/message.py`: `Mail`, `InlineImage`, `build_message`, `html_with_images`.
+- `postduif/config.py`: `MailConfig`, `MailConfigError`.
+- `postduif/transports.py`: `Transport` (`async deliver(sender, mail, message) -> message_id`,
+  raising `MailError`), `PostalTransport`, `OutboxTransport`, `NullTransport`.
+- `postduif/mailer.py`: `Mailer` (retries, redirect, log, `SendResult`), `make_mailer`.
+- `postduif/testing.py`: `FakeMailer`, `RecordingTransport`, `PostalMock`.
 
 ## Conventions
 
-- Tests sit next to the code as `*_test.py`; `env/bin/pytest postduif`.
-- flake8 and isort (profile black) as in CI; the pre-push hook runs them:
+- Tests sit next to the code as `*_test.py`; `env/bin/pytest postduif`. Test data is generic:
+  `example.org` addresses, English texts.
+- flake8, isort and black (90 columns) as in CI; the pre-push hook runs them:
   `git config core.hooksPath .githooks`.
 - New source files get their license header: `seecr-license doc/license.conf postduif`
   (seecr-license >= 3.3.1, which knows MIT).

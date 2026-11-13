@@ -15,7 +15,7 @@ keywords = ["mail", "email", "postal", "asyncio", "mime", "outbox"]
 license = "MIT"
 license-files = ["LICENSE"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
@@ -53,6 +53,11 @@ include = ["postduif*"]
 
 [tool.isort]
 profile = "black"
+line_length = 90
+
+[tool.black]
+line-length = 90
+skip-magic-trailing-comma = true
 
 [tool.pytest]
 asyncio_mode = "auto"
