@@ -14,8 +14,8 @@ messages, log lines, README. Nothing Seecr-specific in code, examples or tests (
 
 ## State of the project
 
-- 0.2.0 is released (PyPI): `message`, `config`, `mailer`, `transports` and `testing`;
-  0.2.0 has what moving Sponsor Mee over asked for (see `CHANGELOG.md`).
+- 0.3.0 is released (PyPI): `message`, `config`, `mailer`, `transports` and `testing`;
+  0.2.0 has what moving Sponsor Mee over asked for, 0.3.0 attachments (see `CHANGELOG.md`).
   The code comes from Sponsor Mee's `sponsormee/mail.py`; Sponsor Mee, Spring Leden, Vault and
   Guard App move over after 0.1.0, each in its own time.
 - Decided: httpx (`AsyncClient`, inside `PostalTransport`, not in the API); `send` returns a

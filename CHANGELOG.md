@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-19)
+
+> Attachments: files that come with a mail, a PDF say. Nothing changes for mails without them,
+> except that `Mail.as_dict()` (and so `OutboxTransport.mails()`) has an `attachments` key.
 
 ### Added
 
