@@ -26,7 +26,8 @@ messages, log lines, README. Nothing Seecr-specific in code, examples or tests (
 
 ## Where things are
 
-- `postduif/message.py`: `Mail`, `InlineImage`, `build_message`, `html_with_images`.
+- `postduif/message.py`: `Mail`, `InlineImage`, `Attachment`, `build_message`,
+  `html_with_images`.
 - `postduif/config.py`: `MailConfig`, `MailConfigError`.
 - `postduif/transports.py`: `Transport` (`async deliver(sender, mail, message) -> message_id`,
   raising `MailError`), `PostalTransport`, `OutboxTransport`, `NullTransport`.

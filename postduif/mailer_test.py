@@ -18,7 +18,7 @@ import pytest
 
 from .config import MailConfig
 from .mailer import Mailer, SendResult, make_mailer
-from .message import InlineImage, Mail
+from .message import Attachment, InlineImage, Mail
 from .testing import FakeMailer, PostalMock
 from .transports import MailError, NullTransport, OutboxTransport, PostalTransport
 
@@ -404,4 +404,23 @@ async def test_fail_with_goes_before_fail_when():
     assert (first.error, second.error) == (
         "RuntimeError: a bug",
         "refused by the RecordingTransport",
+    )
+
+
+async def test_send_an_attachment_through_postal():
+    mock = PostalMock()
+    transport = PostalTransport(
+        "https://postal.example.org", "secret", httpx_transport=mock
+    )
+    mailer = Mailer(transport, "noreply@example.org")
+    pdf = Attachment.from_bytes(b"%PDF-1", "invoice.pdf")
+    result = await mailer.send(
+        to="ann@example.org", subject="Invoice", text="See the PDF", attachments=[pdf]
+    )
+    assert result.sent
+    [sent] = mock.sent
+    [attachment] = sent["message"].iter_attachments()
+    assert (attachment.get_filename(), attachment.get_content()) == (
+        "invoice.pdf",
+        b"%PDF-1",
     )

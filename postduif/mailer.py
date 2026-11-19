@@ -165,7 +165,17 @@ class Mailer:
         return url
 
     async def send(
-        self, *, to, subject, text, html="", reply_to="", tag="", images=(), headers=()
+        self,
+        *,
+        to,
+        subject,
+        text,
+        html="",
+        reply_to="",
+        tag="",
+        images=(),
+        headers=(),
+        attachments=(),
     ):
         """Sends one mail; the fields are those of a Mail (postduif.message). Never raises
         for what goes wrong in sending; returns a SendResult. Fields that cannot make a
@@ -179,6 +189,7 @@ class Mailer:
             tag=tag,
             images=images,
             headers=headers,
+            attachments=attachments,
         )
         return await self._send(mail)
 

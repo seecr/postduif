@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `Attachment` (`postduif.message`, also `from postduif import Attachment`): a file that comes
+  with a mail, `from_bytes(data, filename)` or `from_file(path)`, the content type guessed from
+  the name if not given. `Mail.attachments` and `send(..., attachments=[...])`;
+  `build_message` puts them after the body in a `multipart/mixed`. `as_dict` and `from_dict`
+  (the outbox) have them too, base64-encoded.
+
 ## 0.2.0 (2026-11-13)
 
 > What moving Sponsor Mee over asked for: `send` with keywords only, and fewer workarounds in an

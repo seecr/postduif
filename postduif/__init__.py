@@ -15,7 +15,7 @@
 
 from .config import MailConfig, MailConfigError
 from .mailer import Mailer, SendResult, make_mailer
-from .message import InlineImage, Mail, build_message, html_with_images
+from .message import Attachment, InlineImage, Mail, build_message, html_with_images
 from .transports import (
     MailError,
     NullTransport,
@@ -25,6 +25,7 @@ from .transports import (
 )
 
 __all__ = [
+    "Attachment",
     "InlineImage",
     "Mail",
     "MailConfig",

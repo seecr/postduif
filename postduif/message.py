@@ -11,15 +11,18 @@
 #
 ## end license ##
 
-"""The mail itself: what to send (Mail, InlineImage) and the MIME message made of it.
+"""The mail itself: what to send (Mail, InlineImage, Attachment) and the MIME message
+made of it.
 
     mail = Mail(to="ann@example.org", subject="Your order", text="...", html="<p>...</p>",
-                images=(InlineImage.from_file(path, cid="logo@example.org"),))
+                images=(InlineImage.from_file(path, cid="logo@example.org"),),
+                attachments=(Attachment.from_bytes(pdf, "invoice.pdf"),))
     message = build_message("Example <noreply@example.org>", mail)   # an EmailMessage
 
 A mail is text and, optionally, HTML as alternatives. Images go inside the mail
 (InlineImage) and the HTML shows them with <img src="cid:...">: no links to images
 elsewhere, so nothing to block and nothing that tells a server the mail was opened.
+Attachments are files that come with the mail (a PDF, say), with or without HTML.
 """
 
 import base64
@@ -63,11 +66,7 @@ class InlineImage:
             raise ValueError(
                 f"cid {self.cid!r}: not empty, without <, >, spaces or line breaks"
             )
-        maintype, _, subtype = self.content_type.partition("/")
-        if not (maintype and subtype):
-            raise ValueError(
-                f"content_type {self.content_type!r}: expected e.g. 'image/png'"
-            )
+        _check_content_type(self.content_type, "image/png")
 
     @classmethod
     def from_file(cls, path, cid, content_type=None):
@@ -79,20 +78,63 @@ class InlineImage:
 
     @classmethod
     def from_bytes(cls, data, cid, filename, content_type=None):
-        if content_type is None:
-            content_type = mimetypes.guess_type(filename)[0]
-            if content_type is None:
-                raise ValueError(
-                    f"no content type known for {filename!r}; give content_type"
-                )
         return cls(
-            cid=cid, filename=filename, content_type=content_type, data=bytes(data)
+            cid=cid,
+            filename=filename,
+            content_type=content_type or _guess_content_type(filename),
+            data=bytes(data),
         )
 
     @property
     def data_url(self):
         """The image as a data: URL, to show the mail in a browser."""
         return f"data:{self.content_type};base64,{base64.b64encode(self.data).decode()}"
+
+
+def _guess_content_type(filename):
+    content_type = mimetypes.guess_type(filename)[0]
+    if content_type is None:
+        raise ValueError(f"no content type known for {filename!r}; give content_type")
+    return content_type
+
+
+def _check_content_type(content_type, example):
+    maintype, _, subtype = content_type.partition("/")
+    if not (maintype and subtype):
+        raise ValueError(f"content_type {content_type!r}: expected e.g. {example!r}")
+
+
+@dataclasses.dataclass(frozen=True)
+class Attachment:
+    """A file that comes with a mail, e.g. a PDF."""
+
+    filename: str  # what the addressee sees, e.g. "invoice-2026-001.pdf"
+    content_type: str  # e.g. "application/pdf"
+    data: bytes = dataclasses.field(repr=False)
+
+    def __post_init__(self):
+        if not self.filename or any(c in self.filename for c in "\r\n/\\"):
+            raise ValueError(
+                f"filename {self.filename!r}: not empty, without line breaks or slashes"
+            )
+        _check_content_type(self.content_type, "application/pdf")
+
+    @classmethod
+    def from_file(cls, path, filename=None, content_type=None):
+        """The file at path, by default with its own name; the content type is guessed
+        from the name if not given."""
+        path = pathlib.Path(path)
+        return cls.from_bytes(
+            path.read_bytes(), filename=filename or path.name, content_type=content_type
+        )
+
+    @classmethod
+    def from_bytes(cls, data, filename, content_type=None):
+        return cls(
+            filename=filename,
+            content_type=content_type or _guess_content_type(filename),
+            data=bytes(data),
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -111,9 +153,11 @@ class Mail:
     tag: str = ""
     images: tuple = ()  # InlineImage
     headers: tuple = ()  # (name, value) pairs; a dict is accepted
+    attachments: tuple = ()  # Attachment
 
     def __post_init__(self):
         object.__setattr__(self, "images", tuple(self.images))
+        object.__setattr__(self, "attachments", tuple(self.attachments))
         headers = self.headers.items() if hasattr(self.headers, "items") else self.headers
         object.__setattr__(
             self, "headers", tuple((str(name), str(value)) for name, value in headers)
@@ -141,6 +185,14 @@ class Mail:
             for image in self.images
         ]
         values["headers"] = dict(self.headers)
+        values["attachments"] = [
+            dict(
+                filename=attachment.filename,
+                content_type=attachment.content_type,
+                data=base64.b64encode(attachment.data).decode(),
+            )
+            for attachment in self.attachments
+        ]
         return values
 
     @classmethod
@@ -153,6 +205,10 @@ class Mail:
             InlineImage(**image | {"data": base64.b64decode(image["data"])})
             for image in values.get("images", ())
         ]
+        values["attachments"] = [
+            Attachment(**attachment | {"data": base64.b64decode(attachment["data"])})
+            for attachment in values.get("attachments", ())
+        ]
         return cls(**values)
 
 
@@ -160,8 +216,9 @@ def build_message(sender, mail):
     """The MIME message of a mail.
 
     Text only: text/plain. With HTML: multipart/alternative with the text and the HTML,
-    and the HTML with its images in a multipart/related. The Message-ID is on the domain
-    of the sender; the Date is in UTC, whatever the time zone of the server.
+    and the HTML with its images in a multipart/related. With attachments, that is the
+    first part of a multipart/mixed, the attachments the next. The Message-ID is on the
+    domain of the sender; the Date is in UTC, whatever the time zone of the server.
 
     Raises ValueError for a header that cannot be one (a line break in the subject, say),
     so a value from a visitor cannot add headers of its own."""
@@ -194,6 +251,14 @@ def build_message(sender, mail):
                 filename=image.filename,
                 disposition="inline",
             )
+    for attachment in mail.attachments:
+        maintype, _, subtype = attachment.content_type.partition("/")
+        message.add_attachment(
+            attachment.data,
+            maintype=maintype,
+            subtype=subtype,
+            filename=attachment.filename,
+        )
     return message
 
 

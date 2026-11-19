@@ -18,7 +18,7 @@ import email.utils
 
 import pytest
 
-from .message import InlineImage, Mail, build_message, html_with_images
+from .message import Attachment, InlineImage, Mail, build_message, html_with_images
 
 SENDER = "Example <noreply@example.org>"
 LOGO = InlineImage(
@@ -27,6 +27,7 @@ LOGO = InlineImage(
     content_type="image/png",
     data=b"\x89PNG-logo",
 )
+PDF = Attachment(filename="invoice.pdf", content_type="application/pdf", data=b"%PDF-1")
 
 
 def parse(message):
@@ -215,6 +216,7 @@ def test_as_dict():
             }
         ],
         "headers": {"Auto-Submitted": "auto-generated"},
+        "attachments": [],
     }
 
 
@@ -228,8 +230,16 @@ def test_from_dict_is_the_inverse_of_as_dict():
         tag="order",
         images=[LOGO],
         headers={"Auto-Submitted": "auto-generated"},
+        attachments=[PDF],
     )
     assert Mail.from_dict(mail.as_dict()) == mail
+    assert mail.as_dict()["attachments"] == [
+        {
+            "filename": "invoice.pdf",
+            "content_type": "application/pdf",
+            "data": base64.b64encode(b"%PDF-1").decode(),
+        }
+    ]
     assert Mail.from_dict(Mail("ann@example.org", "Hi", "text").as_dict()).images == ()
 
 
@@ -237,3 +247,71 @@ def test_from_dict_leaves_out_other_keys():
     values = Mail("ann@example.org", "Hello", "text").as_dict()
     extra = {"from": "noreply@example.org", "message_id": "outbox-1", "sent_at": "now"}
     assert Mail.from_dict(values | extra) == Mail("ann@example.org", "Hello", "text")
+
+
+def test_an_attachment_with_text_only():
+    mail = Mail("ann@example.org", "Your invoice", "text", attachments=[PDF])
+    assert mail.attachments == (PDF,)
+    message = parse(build_message(SENDER, mail))
+    assert message.get_content_type() == "multipart/mixed"
+    body, pdf = message.get_payload()
+    assert body.get_content_type() == "text/plain"
+    assert message.get_body(("plain",)).get_content().rstrip() == "text"
+    assert pdf.get_content_type() == "application/pdf"
+    assert pdf.get_content_disposition() == "attachment"
+    assert pdf.get_filename() == "invoice.pdf"
+    assert pdf.get_content() == b"%PDF-1"
+
+
+def test_attachments_with_html_and_images():
+    other = Attachment.from_bytes(b"a,b", "data.csv")
+    mail = Mail(
+        "ann@example.org",
+        "Your invoice",
+        "text",
+        '<p><img src="cid:logo@example.org"></p>',
+        images=[LOGO],
+        attachments=[PDF, other],
+    )
+    message = parse(build_message(SENDER, mail))
+    assert message.get_content_type() == "multipart/mixed"
+    alternative, pdf, csv = message.get_payload()
+    assert alternative.get_content_type() == "multipart/alternative"
+    plain, related = alternative.get_payload()
+    assert related.get_payload()[1]["Content-ID"] == "<logo@example.org>"
+    assert message.get_body(("html",)).get_content().startswith("<p><img")
+    assert [part.get_filename() for part in message.iter_attachments()] == [
+        "invoice.pdf",
+        "data.csv",
+    ]
+    assert csv.get_content_type() == "text/csv"
+
+
+def test_attachment_from_file(tmp_path):
+    path = tmp_path / "report.pdf"
+    path.write_bytes(b"%PDF-2")
+    attachment = Attachment.from_file(path)
+    assert (attachment.filename, attachment.content_type, attachment.data) == (
+        "report.pdf",
+        "application/pdf",
+        b"%PDF-2",
+    )
+    assert Attachment.from_file(path, filename="other.pdf").filename == "other.pdf"
+
+
+def test_attachment_from_bytes():
+    attachment = Attachment.from_bytes(bytearray(b"x"), "notes.bin", "application/x-y")
+    assert (attachment.content_type, attachment.data) == ("application/x-y", b"x")
+    with pytest.raises(ValueError, match="no content type known"):
+        Attachment.from_bytes(b"x", "notes.unknownextension")
+
+
+@pytest.mark.parametrize("filename", ["", "a\nb.pdf", "dir/a.pdf", "dir\\a.pdf"])
+def test_attachment_bad_filename(filename):
+    with pytest.raises(ValueError, match="filename"):
+        Attachment(filename=filename, content_type="application/pdf", data=b"")
+
+
+def test_attachment_bad_content_type():
+    with pytest.raises(ValueError, match="content_type"):
+        Attachment(filename="a.pdf", content_type="pdf", data=b"")

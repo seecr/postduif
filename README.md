@@ -18,6 +18,7 @@ laptop.
   then.
 - **Images inside the mail** (`cid:`), not linked from elsewhere: nothing to block, nothing that
   tells a server the mail was opened.
+- **Attachments**: files that come with the mail, a PDF say.
 - **Mail off is a Mailer too**: no `if mailer is None` in your app.
 - **`redirect_to`** sends every mail to one address, to test with the real mail server.
 - **Testing helpers**: a mailer that records what it sends, and a mock of Postal's API.
@@ -47,6 +48,16 @@ result = await mailer.send(
 )
 if not result:
     print(result.error)       # also in the log; result.attempts says how often it was tried
+```
+
+Files come with a mail as attachments, with or without HTML:
+
+```python
+from postduif import Attachment
+
+invoice = Attachment.from_bytes(pdf_bytes, "invoice-2026-001.pdf")   # or from_file(path)
+await mailer.send(to="ann@example.org", subject="Your invoice", text="...",
+                  attachments=[invoice])
 ```
 
 `send` takes keywords only, so the fields can come from a dict: `send(**fields)`.

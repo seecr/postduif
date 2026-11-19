@@ -185,6 +185,7 @@ async def test_outbox(tmp_path):
             }
         ],
         "headers": {},
+        "attachments": [],
         "message_id": second,
         "sent_at": None,
     }
